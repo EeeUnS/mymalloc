@@ -41,7 +41,7 @@ team_t team = {
 #define ASSERT(expr, ...) if(!(expr)) __debugbreak();
 #endif 
 
-#define WSIZE     4       /* Word size in bytes */
+//#define WSIZE     4       /* Word size in bytes */
 #define DSIZE     8       /* Double word size in bytes */
 #define CHUNKSIZE (1<<12) /* Page size in bytes */
 #define MINSIZE   (DSIZE * 2)      /* Minimum block size */
@@ -64,11 +64,11 @@ team_t team = {
 #define FTRP(bp)       ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
 
 /* Given block ptr bp, compute address of next and previous blocks */
-#define NEXT_BLKP(bp)  ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
-#define PREV_BLKP(bp)  ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
+#define NEXT_BLKP(bp)  ((char *)(bp) + GET_SIZE(((char *)(bp) - sizeof(DWORD))))
+#define PREV_BLKP(bp)  ((char *)(bp) - GET_SIZE(((char *)(bp) - sizeof(DWORD) * 2)))
 
 /* single word (4) or double word (8) alignment */
-#define ALIGNMENT 8
+#define ALIGNMENT (sizeof(DWORD) * 2)
 
 /* rounds up to the nearest multiple of ALIGNMENT */
 #define ALIGN(p) (((size_t)(p) + (ALIGNMENT-1)) & ~0x7)
