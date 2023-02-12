@@ -98,6 +98,7 @@ static void set_header(void* base_ptr, size_t size, int is_alloc)
 	ASSERT(size >= MINSIZE);
 	ASSERT((size & (MINSIZE - 1)) == 0);
 
+	base_ptr = (char*)base_ptr - DSIZE;
 	PUT(base_ptr, PACK(size, is_alloc));
 }
 
@@ -121,7 +122,7 @@ DWORD is_allocated(void* base_ptr)
 
 static void set_next_pointer(void* base_ptr, void* next_ptr)
 {
-	PUT((DWORD *)base_ptr, (DWORD)next_ptr);
+	PUT((DWORD*)base_ptr, (DWORD)next_ptr);
 }
 
 static DWORD* get_next_pointer(void* base_ptr)
@@ -147,14 +148,14 @@ int mm_init(void)
 static void* raw_alloc(size_t size)
 {
 	char* bp;
-	if ((DWORD)(bp = (char *)mem_sbrk(size)) == -1)
+	if ((DWORD)(bp = (char*)mem_sbrk(size)) == -1)
 	{
 		ASSERT(1 != 1);
 		return NULL;
 	}
 
-	set_header(bp, size, 0);
 	bp += DSIZE;
+	set_header(bp, size, 0);
 	return bp;
 }
 
@@ -162,10 +163,10 @@ static size_t get_index(size_t size)
 {
 	size_t index = 0;
 	size_t block_size = 1;
-	while (block_size <= size)
+	while (block_size < size)
 	{
 		block_size = block_size << 1;
-		index++;
+		++index;
 	}
 	--index;
 	ASSERT(index < MAX_SIZE, "size over");
@@ -198,10 +199,6 @@ void* mm_malloc(size_t size)
 
 		void* ptr = raw_alloc(total_size);
 
-		DWORD *pptr = (DWORD*)HDRP(ptr);
-		size_t t = GET(pptr);
-		size_t ssize = GET_SIZE(pptr);
-
 		printf("%lld is allocate and my alloc is %lld\n", get_alloced_size(ptr), total_size);
 		printf("%p is start\n", ptr);
 
@@ -223,7 +220,7 @@ void* mm_malloc(size_t size)
 			ptr = next_ptr;
 		}
 		set_next_pointer(((unsigned char*)ptr - chunk_size), NULL);
-		printf("%p saved next block %p\n", ptr, get_next_pointer(ptr));
+		printf("%p saved next block %p\n", (unsigned char*)ptr - chunk_size, get_next_pointer((unsigned char*)ptr - chunk_size));
 	}
 
 	ASSERT(free_list[index] != NULL);
@@ -240,27 +237,15 @@ void* mm_malloc(size_t size)
  * mm_free - Freeing a block does nothing.
  */
 void mm_free(void* ptr)
-{	
+{
 	size_t size = get_alloced_size(ptr);
 	size_t index = get_index(size);
 
 	set_header(ptr, size, 0);
 
 	set_next_pointer(ptr, free_list[index]);
-	
+
 	free_list[index] = ptr;
-
-	/*
-	ptr header 까서 size
-	size get_index
-	index
-	free_list index
-
-	free_list[index] = ~?
-	ptr free_list[index]
-	free_list[index] = ptr;
-	*/
-
 }
 
 /*
