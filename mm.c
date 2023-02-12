@@ -235,7 +235,16 @@ void* mm_malloc(size_t size)
  * mm_free - Freeing a block does nothing.
  */
 void mm_free(void* ptr)
-{
+{	
+	size_t size = get_alloced_size(ptr);
+	size_t index = get_index(size);
+
+	set_header(ptr, size, 0);
+
+	set_next_pointer(ptr, free_list[index]);
+	
+	free_list[index] = ptr;
+
 	/*
 	ptr header 까서 size
 	size get_index
