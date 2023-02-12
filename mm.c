@@ -79,7 +79,7 @@ team_t team = {
 
 #define MAX_SIZE 16
 
-#define POOL_SIZE  1024
+#define POOL_SIZE  1024 * 4
 /*
 address 64bit os
 using memory pool
@@ -253,17 +253,13 @@ void mm_free(void* ptr)
  */
 void* mm_realloc(void* ptr, size_t size)
 {
-	void* oldptr = ptr;
-	void* newptr;
-	size_t copySize;
-
-	newptr = mm_malloc(size);
-	if (newptr == NULL)
-		return NULL;
-	copySize = *(size_t*)((char*)oldptr - SIZE_T_SIZE);
-	if (size < copySize)
-		copySize = size;
-	memcpy(newptr, oldptr, copySize);
-	mm_free(oldptr);
-	return newptr;
+	size_t old_size = get_alloced_size(ptr);
+	if (old_size > size)
+	{
+		return ptr;
+	}
+	void* new_ptr = mm_malloc(size);
+	memcpy(new_ptr, ptr, old_size);
+	mm_free(ptr);
+	return new_ptr;
 }
