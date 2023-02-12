@@ -157,6 +157,19 @@ void* mm_malloc(size_t size)
 	}
 }
 
+//사이즈를 넣으면 사이즈를 할당해주고 헤더넣고 반화하는 함수
+static void* raw_alloc(size_t size)
+{   
+    char* bp
+    if((long)(bp = mem_sbrk(size) == -1))
+        return NULL;
+
+    PUT(HDRP(bp), PACK(size, 0));
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+
+    return 0;
+}
+
 /*
  * mm_free - Freeing a block does nothing.
  */
