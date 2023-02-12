@@ -41,10 +41,10 @@ team_t team = {
 #define ASSERT(expr, ...) if(!(expr)) __debugbreak();
 #endif 
 
-//#define WSIZE     4       /* Word size in bytes */
+ //#define WSIZE     4       /* Word size in bytes */
 #define DSIZE     8       /* Double word size in bytes */
 #define CHUNKSIZE (1<<12) /* Page size in bytes */
-#define MINSIZE   (DSIZE * 2)      /* Minimum block size */
+#define MINSIZE   (DSIZE)      /* Minimum block size */
 
 #define DWORD unsigned long long
 
@@ -79,6 +79,7 @@ team_t team = {
 
 #define MAX_SIZE 16
 
+#define POOL_SIZE  1024
 /*
 address 64bit os
 using memory pool
@@ -86,12 +87,13 @@ using memory pool
 
 // 2^{index} 2^12 = 4096
 static void* free_list[MAX_SIZE];
+static void* fool[MAX_SIZE];
 
 
 static_assert(sizeof(void*) == DSIZE, "pointer size isn't 8");
 static_assert(sizeof(DWORD) == DSIZE, "pointer size isn't 8");
 
-static void set_header(void* base_ptr, int size, int is_alloc)
+static void set_header(void* base_ptr, size_t size, int is_alloc)
 {
 	ASSERT(size >= MINSIZE);
 	ASSERT((size & (MINSIZE - 1)) == 0);
@@ -99,7 +101,8 @@ static void set_header(void* base_ptr, int size, int is_alloc)
 	PUT(base_ptr, PACK(size, is_alloc));
 }
 
-DWORD* get_header_pointer(void* base_ptr)
+
+static DWORD* get_header_pointer(void* base_ptr)
 {
 	ASSERT((DWORD)((DWORD*)base_ptr - 1) == ((DWORD)base_ptr - DSIZE));
 
@@ -116,6 +119,16 @@ DWORD is_allocated(void* base_ptr)
 	return GET_ALLOC(get_header_pointer(base_ptr));
 }
 
+static void set_next_pointer(void* base_ptr, void* next_ptr)
+{
+	PUT((DWORD *)base_ptr, (DWORD)next_ptr);
+}
+
+static DWORD* get_next_pointer(void* base_ptr)
+{
+	return (DWORD*)GET(base_ptr);
+}
+
 
 /*
  * mm_init - initialize the malloc package.
@@ -130,52 +143,110 @@ int mm_init(void)
  *     Always allocate a block whose size is a multiple of the alignment.
  */
 
-
-size_t get_index(size_t size)
+ //사이즈를 넣으면 사이즈를 할당해주고 헤더넣고 반화하는 함수
+static void* raw_alloc(size_t size)
 {
-	size_t index = DSIZE;
-
-	while (size <= index)
+	char* bp;
+	if ((DWORD)(bp = (char *)mem_sbrk(size)) == -1)
 	{
-		index = index << 1;
+		ASSERT(1 != 1);
+		return NULL;
 	}
 
-	ASSERT(index < MAX_SIZE);
+	set_header(bp, size, 0);
+	return bp;
+}
+
+static size_t get_index(size_t size)
+{
+	size_t index = 0;
+	size_t block_size = 1;
+	while (block_size <= size)
+	{
+		block_size = block_size << 1;
+		index++;
+	}
+	--index;
+	ASSERT(index < MAX_SIZE, "size over");
 	return index;
 }
 
-
 void* mm_malloc(size_t size)
 {
-	int newsize = ALIGN(size + SIZE_T_SIZE);
-	void* p = mem_sbrk(newsize);
-	if (p == (void*)-1)
-		return NULL;
-	else {
-		*(size_t*)p = size;
-		return (void*)((char*)p + SIZE_T_SIZE);
+	size_t index = get_index(size);
+
+	void* ret;
+	if (free_list[index] == NULL)
+	{
+		// block size 2^index
+		size_t block_size = 2 << index;
+
+		size_t block_num;
+		if (POOL_SIZE > block_size)
+		{
+			//ASSERT(POOL_SIZE > block_size);
+			block_num = POOL_SIZE / block_size;
+		}
+		else
+		{
+			block_num = 1;
+		}
+
+		size_t chunk_size = DSIZE + block_size;
+		size_t total_size = DSIZE + chunk_size * block_num;
+
+		void* ptr = raw_alloc(total_size);
+
+		printf("%lld is allocate and my alloc is %lld\n", get_alloced_size(ptr), total_size);
+		printf("%p is start\n", ptr);
+
+		//first alloc fool[index] is NULL
+		set_next_pointer(ptr, fool[index]);
+		fool[index] = ptr;
+
+		// + pointer size + header size 
+		ptr = (unsigned char*)ptr + DSIZE * 2;
+		free_list[index] = ptr;
+
+		for (int i = 0; i < block_num; ++i)
+		{
+			printf("%p is block\n", ptr);
+			set_header(ptr, block_size, 0);
+			void* next_ptr = (unsigned char*)ptr + chunk_size;
+			set_next_pointer(ptr, next_ptr);
+			printf("%p saved next block %p\n", ptr, get_next_pointer(ptr));
+			ptr = next_ptr;
+		}
+		set_next_pointer(((unsigned char*)ptr - chunk_size), NULL);
+		printf("%p saved next block %p\n", ptr, get_next_pointer(ptr));
 	}
+
+	ASSERT(free_list[index] != NULL);
+
+	ret = free_list[index];
+	DWORD* next_block = get_next_pointer(free_list[index]);
+	free_list[index] = next_block;
+
+	return ret;
 }
 
-//사이즈를 넣으면 사이즈를 할당해주고 헤더넣고 반화하는 함수
-static void* raw_alloc(size_t size)
-{   
-    char* bp
-    if((long)(bp = mem_sbrk(size) == -1))
-        return NULL;
-
-    PUT(HDRP(bp), PACK(size, 0));
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
-
-    return 0;
-}
 
 /*
  * mm_free - Freeing a block does nothing.
  */
 void mm_free(void* ptr)
 {
-	(void)ptr;
+	/*
+	ptr header 까서 size
+	size get_index
+	index
+	free_list index
+
+	free_list[index] = ~?
+	ptr free_list[index]
+	free_list[index] = ptr;
+	*/
+
 }
 
 /*
