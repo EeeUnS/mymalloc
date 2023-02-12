@@ -154,6 +154,7 @@ static void* raw_alloc(size_t size)
 	}
 
 	set_header(bp, size, 0);
+	bp += DSIZE;
 	return bp;
 }
 
@@ -196,6 +197,10 @@ void* mm_malloc(size_t size)
 		size_t total_size = DSIZE + chunk_size * block_num;
 
 		void* ptr = raw_alloc(total_size);
+
+		DWORD *pptr = (DWORD*)HDRP(ptr);
+		size_t t = GET(pptr);
+		size_t ssize = GET_SIZE(pptr);
 
 		printf("%lld is allocate and my alloc is %lld\n", get_alloced_size(ptr), total_size);
 		printf("%p is start\n", ptr);
