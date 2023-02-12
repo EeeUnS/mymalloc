@@ -35,7 +35,7 @@ team_t team = {
 	""
 };
 #include <assert.h>
-#define #define ASSERT(expr, ...) assert(expr);
+#define ASSERT(expr, ...) assert(expr);
 #else
 #include <intrin.h>
 #define ASSERT(expr, ...) if(!(expr)) __debugbreak();
