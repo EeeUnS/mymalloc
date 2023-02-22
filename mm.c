@@ -45,7 +45,6 @@ team_t team = {
 	if (!(expr))          \
 		__debugbreak();
 #endif
-
 #define INITCHUNKSIZE (1 << 6)
 #define DWORD unsigned long long
 
@@ -141,25 +140,12 @@ static DWORD *get_next_pointer(void *base_ptr)
  */
 int mm_init(void)
 {
-	char *heap_start; // Pointer to beginning of heap
-
 	for (int i = 0; i < MAX_SIZE; ++i)
 	{
 		free_list[i] = NULL;
 		pool[i] = NULL;
 	}
-	if ((long)(heap_start = (char *)mem_sbrk(4 * DSIZE)) == -1)
-		return -1;
 
-	PUT(heap_start, 0);							   /* Alignment padding */
-	PUT(heap_start + (1 * DSIZE), PACK(DSIZE, 1)); /* Prologue header */
-	PUT(heap_start + (2 * DSIZE), PACK(DSIZE, 1)); /* Prologue footer */
-	PUT(heap_start + (3 * DSIZE), PACK(0, 1));	   /* Epilogue header */
-
-	if (mem_sbrk(INITCHUNKSIZE) == NULL)
-	{
-		return -1;
-	}
 	return 0;
 }
 
@@ -206,7 +192,7 @@ void *mm_malloc(size_t size)
 	if (free_list[index] == NULL)
 	{
 		// block size 2^index
-		size_t block_size = 2 << index;
+		const size_t block_size = 2 << index;
 
 		size_t block_num;
 		if (POOL_SIZE > block_size)
